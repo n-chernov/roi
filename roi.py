@@ -5,6 +5,7 @@ import urllib.parse
 import json
 import time
 import configparser
+import requests
 
 
 def get_time_str():
@@ -51,6 +52,19 @@ def send_telegram_msg(token, chat_id, message):
         log_error("Exception has been caught" + "\n" + str(e))
 
 
+def send_telegram_file(token, chat_id, file_name):
+    try:
+        url = 'https://api.telegram.org/bot' + token + '/sendDocument?chat_id=' + chat_id
+        files = [('document', (file_name, open(file_name, 'rb')))]
+        resp = requests.post(url, files=files)
+        if resp.status_code != 200:
+            log_error('Failed to send file')
+            log_error(str(resp))
+            log_error(resp.text)
+    except Exception as e:
+        log_error("Exception has been caught" + "\n" + str(e))
+
+
 def save_results_str(filename, results_str):
     file = open(filename, "a")
     file.write(results_str)
@@ -70,10 +84,16 @@ if len(petition_data) > 0:
     number_of_yes = petition_json["data"]["vote"]["affirmative"]
     number_of_no = petition_json["data"]["vote"]["negative"]
     str_to_write = time.strftime("%Y-%m-%d %H:%M") + ',' + str(number_of_yes) + ',' + str(number_of_no)
-    save_results_str("roi-" + petition + ".csv", str_to_write)
-    hour = time.localtime(time.time()).tm_hour
-    if True or hour == 11:
+    results_filename = "roi-" + petition + ".csv"
+    save_results_str(results_filename, str_to_write)
+
+    cur_time = time.localtime(time.time())
+    hour = cur_time.tm_hour
+    day = cur_time.tm_wday
+    if hour == 11:
         msg = 'Yes: ' + str(number_of_yes) + '; No: ' + str(number_of_no)
         send_telegram_msg(bot_token, chat_id, msg)
+        if day == 0:
+            send_telegram_file(bot_token, chat_id, results_filename)
 else:
     log_error("Something was wrong...")
