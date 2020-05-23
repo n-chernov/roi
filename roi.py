@@ -12,12 +12,17 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 
+date_format = '%Y-%m-%d'
 time_format = '%Y-%m-%d %H:%M'
 chart_filename = 'graph.png'
 
 
 def get_time_str():
     return time.strftime(time_format)
+
+
+def get_date_str():
+    return time.strftime(date_format)
 
 
 def log_error(message):
@@ -60,10 +65,10 @@ def send_telegram_msg(token, chat_id, message):
         log_error("Exception has been caught" + "\n" + str(e))
 
 
-def send_telegram_file(token, chat_id, file_name):
+def send_telegram_file(token, chat_id, file_name, file_name_to_show):
     try:
         url = 'https://api.telegram.org/bot' + token + '/sendDocument?chat_id=' + chat_id
-        files = [('document', (file_name, open(file_name, 'rb')))]
+        files = [('document', (file_name_to_show, open(file_name, 'rb')))]
         resp = requests.post(url, files=files)
         if resp.status_code != 200:
             log_error('Failed to send file')
@@ -93,7 +98,7 @@ def save_results_str(filename, results_str):
     file.close()
 
 
-def draw_chart(csv_file_name, chart_filename):
+def draw_chart(csv_file_name, chart_filename, petition):
     x = []
     yes = []
     no = []
@@ -114,7 +119,7 @@ def draw_chart(csv_file_name, chart_filename):
         ax.tick_params(axis='x', rotation=20)
         ax.legend()
         ax.grid(True)
-        ax.set_title('Ход голосования по инициативе №47Ф63007')
+        ax.set_title('Ход голосования по инициативе ' + petition)
         fig.savefig(chart_filename)
     except Exception as e:
         log_error("draw_chart: exception has been caught" + "\n" + str(e))
@@ -133,6 +138,7 @@ if len(petition_data) > 0:
     number_of_no = petition_json["data"]["vote"]["negative"]
     str_to_write = time.strftime(time_format) + ',' + str(number_of_yes) + ',' + str(number_of_no)
     results_filename = "roi-" + petition + ".csv"
+    results_filename_with_date = "roi" + petition + "-" + get_date_str() + ".csv"
     save_results_str(results_filename, str_to_write)
 
     cur_time = time.localtime(time.time())
@@ -142,8 +148,8 @@ if len(petition_data) > 0:
         msg = 'Yes: ' + str(number_of_yes) + '; No: ' + str(number_of_no)
         send_telegram_msg(bot_token, chat_id, msg)
         if day == 0:
-            send_telegram_file(bot_token, chat_id, results_filename)
-            draw_chart(results_filename, chart_filename)
+            send_telegram_file(bot_token, chat_id, results_filename, results_filename_with_date)
+            draw_chart(results_filename, chart_filename, petition)
             send_telegram_photo(bot_token, chat_id, chart_filename)
 else:
     log_error("Something was wrong...")
